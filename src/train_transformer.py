@@ -1,1 +1,104 @@
-{"metadata":{"kernelspec":{"language":"python","display_name":"Python 3","name":"python3"},"language_info":{"name":"python","version":"3.12.12","mimetype":"text/x-python","codemirror_mode":{"name":"ipython","version":3},"pygments_lexer":"ipython3","nbconvert_exporter":"python","file_extension":".py"},"kaggle":{"accelerator":"none","dataSources":[],"dockerImageVersionId":31286,"isInternetEnabled":false,"language":"python","sourceType":"notebook","isGpuEnabled":false}},"nbformat_minor":4,"nbformat":4,"cells":[{"cell_type":"code","source":"# This Python 3 environment comes with many helpful analytics libraries installed\n# It is defined by the kaggle/python Docker image: https://github.com/kaggle/docker-python\n# For example, here's several helpful packages to load\n\nimport numpy as np # linear algebra\nimport pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)\n\n# Input data files are available in the read-only \"../input/\" directory\n# For example, running this (by clicking run or pressing Shift+Enter) will list all files under the input directory\n\nimport os\nfor dirname, _, filenames in os.walk('/kaggle/input'):\n    for filename in filenames:\n        print(os.path.join(dirname, filename))\n\n# You can write up to 20GB to the current directory (/kaggle/working/) that gets preserved as output when you create a version using \"Save & Run All\" \n# You can also write temporary files to /kaggle/temp/, but they won't be saved outside of the current session","metadata":{"_uuid":"8f2839f25d086af736a60e9eeb907d3b93b6e0e5","_cell_guid":"b1076dfc-b9ad-4769-8c92-a6c4dae69d19","trusted":true,"execution":{"iopub.status.busy":"2026-03-13T13:42:09.993515Z","iopub.execute_input":"2026-03-13T13:42:09.993862Z","iopub.status.idle":"2026-03-13T13:42:11.748746Z","shell.execute_reply.started":"2026-03-13T13:42:09.993835Z","shell.execute_reply":"2026-03-13T13:42:11.747730Z"}},"outputs":[],"execution_count":1},{"cell_type":"code","source":"","metadata":{"trusted":true},"outputs":[],"execution_count":null}]}
+# Import Libraries
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+from datasets import Dataset
+from transformers import AutoTokenizer
+from transformers import AutoModelForSequenceClassification
+from transformers import TrainingArguments
+from transformers import Trainer
+
+
+# Load Dataset
+df = pd.read_csv("data/raw/train.csv")
+
+texts = df["text"]
+labels = df["Sarcasm"]
+
+
+# Train-Test Split
+X_train, X_test, y_train, y_test = train_test_split(
+    texts,
+    labels,
+    test_size=0.2,
+    random_state=42
+)
+
+
+# Convert to Hugging Face Dataset
+train_dataset = Dataset.from_dict({
+    "text": list(X_train),
+    "label": list(y_train)
+})
+
+test_dataset = Dataset.from_dict({
+    "text": list(X_test),
+    "label": list(y_test)
+})
+
+# Load Tokenizer
+model_name = "bert-base-uncased"
+
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+
+# Tokenize Text
+
+
+def tokenize(example):
+    return tokenizer(
+        example["text"],
+        padding="max_length",
+        truncation=True
+    )
+
+
+train_dataset = train_dataset.map(tokenize)
+test_dataset = test_dataset.map(tokenize)
+
+# Load Model
+model = AutoModelForSequenceClassification.from_pretrained(
+    model_name,
+    num_labels=2
+)
+
+# Training Configuration
+
+training_args = TrainingArguments(
+
+    output_dir="../models/bert",
+
+    learning_rate=2e-5,
+
+    per_device_train_batch_size=8,
+
+    per_device_eval_batch_size=8,
+
+    num_train_epochs=3,
+
+    evaluation_strategy="epoch",
+
+    save_strategy="epoch",
+
+    logging_dir="../results"
+)
+
+
+# Trainer
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=train_dataset,
+    eval_dataset=test_dataset,
+)
+
+# Train Model
+trainer.train()
+
+
+# Save Model
+# trainer.save_model("../models/bert")
+
+# Train Other Transformers
+model2_name = "roberta-base"
+model3_name = "distilbert-base-uncased"
